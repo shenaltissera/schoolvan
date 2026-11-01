@@ -1,8 +1,10 @@
+import { Image } from 'expo-image';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Brand, drivers, vans } from '@schoolvan/shared';
+import { Brand } from '@schoolvan/shared';
 
+import { useAccount } from '@/auth/account';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -21,44 +23,57 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function ProfileScreen() {
-  const driver = drivers[0];
-  const van = vans.find((v) => v.id === driver.vanId);
+  const { account, signOut } = useAccount();
+
+  if (!account) return null;
+
+  function confirmSignOut() {
+    Alert.alert('Sign out', 'This removes your account from this device.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
+    ]);
+  }
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <ThemedText type="title" style={{ color: '#000' }}>
-                {driver.name.charAt(0)}
-              </ThemedText>
-            </View>
-            <ThemedText type="subtitle">{driver.name}</ThemedText>
+            <Image source={{ uri: account.driverPhotoUri }} style={styles.avatar} />
+            <ThemedText type="subtitle">{account.driverName}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               Driver
             </ThemedText>
           </View>
 
           <ThemedView type="backgroundElement" style={styles.card}>
-            <Row label="Phone" value={driver.phone} />
-            <Row label="License" value={driver.licenseNo} />
+            <Row label="Vehicle number" value={account.vehicleNumber} />
+            <Row label="Association reg. no." value={account.associationRegNo} />
           </ThemedView>
 
-          {van && (
+          {account.assistantName ? (
             <ThemedView type="backgroundElement" style={styles.card}>
               <ThemedText type="smallBold" style={styles.cardTitle}>
-                Assigned van
+                Assistant
               </ThemedText>
-              <Row label="Plate" value={van.plateNo} />
-              <Row label="Model" value={van.model} />
-              <Row label="Capacity" value={`${van.capacity} seats`} />
+              <View style={styles.assistantRow}>
+                {account.assistantPhotoUri ? (
+                  <Image source={{ uri: account.assistantPhotoUri }} style={styles.assistantPhoto} />
+                ) : (
+                  <View style={[styles.assistantPhoto, styles.assistantPlaceholder]}>
+                    <ThemedText type="smallBold" style={{ color: '#000' }}>
+                      {account.assistantName.charAt(0)}
+                    </ThemedText>
+                  </View>
+                )}
+                <ThemedText type="default" style={styles.semibold}>
+                  {account.assistantName}
+                </ThemedText>
+              </View>
             </ThemedView>
-          )}
+          ) : null}
 
-          <Pressable
-            style={styles.signOut}
-            onPress={() => Alert.alert('Sign out', 'Auth is not wired up yet.')}>
+          <Pressable style={styles.signOut} onPress={confirmSignOut}>
             <ThemedText type="smallBold" style={{ color: Brand.danger }}>
               Sign out
             </ThemedText>
@@ -83,12 +98,13 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 42,
     backgroundColor: Brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   card: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
   cardTitle: { marginBottom: Spacing.one },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  assistantRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  assistantPhoto: { width: 48, height: 48, borderRadius: 24, backgroundColor: Brand.primary },
+  assistantPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   semibold: { fontWeight: '600' },
   signOut: { alignItems: 'center', paddingVertical: Spacing.three },
 });

@@ -32,6 +32,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SchoolVan Driver to access your photos to set the driver and assistant photos.",
+          "cameraPermission": "Allow SchoolVan Driver to use the camera to take the driver and assistant photos."
+        }
       ]
     ],
     "experiments": {
