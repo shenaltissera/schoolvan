@@ -1,0 +1,15 @@
+{
+  "name": "schoolvan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SchoolVan — driver and parent mobile apps for school van tracking (Expo / React Native).",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "driver": "npm start --workspace driver",
+    "parent": "npm start --workspace parent",
+    "typecheck": "npm run -ws --if-present typecheck"
+  }
+}
