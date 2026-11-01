@@ -41,6 +41,9 @@ export interface Student {
   address: string;
 }
 
+/** What happens to the listed students at a stop. */
+export type StopKind = 'pickup' | 'dropoff';
+
 /** A physical pickup/drop-off point along a route. */
 export interface Stop {
   id: ID;
@@ -48,6 +51,7 @@ export interface Stop {
   address: string;
   lat: number;
   lng: number;
+  kind: StopKind;
   /** Planned arrival time at this stop, ISO 8601. */
   scheduledAt: string;
   studentIds: ID[];
@@ -55,12 +59,20 @@ export interface Stop {
 
 export type TripDirection = 'to_school' | 'from_school';
 
+/** The two operating windows of a school day. */
+export type TripWindow = 'morning' | 'afternoon';
+
 export type TripStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 
-/** A single run of a van along a route (e.g. this morning's pickup). */
+/**
+ * A single run of a van along a route.
+ * - morning: pick up children from home, drop off at school.
+ * - afternoon: pick up from school, drop off at home or a designated point.
+ */
 export interface Trip {
   id: ID;
   routeName: string;
+  window: TripWindow;
   direction: TripDirection;
   status: TripStatus;
   driverId: ID;

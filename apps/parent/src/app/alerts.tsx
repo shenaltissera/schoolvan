@@ -2,11 +2,22 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Brand, api, studentById, subscribe, type Alert, type AlertKind } from '@schoolvan/shared';
+import {
+  Brand,
+  api,
+  parents,
+  studentById,
+  subscribe,
+  type Alert,
+  type AlertKind,
+} from '@schoolvan/shared';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
+
+// Demo: the signed-in parent. Replace with the authenticated user.
+const CURRENT_PARENT = parents[0];
 
 const ALERT_ICON: Record<AlertKind, string> = {
   trip_started: '🚐',
@@ -28,7 +39,8 @@ export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
-    const load = () => api.getAlerts().then((a) => setAlerts([...a]));
+    const load = () =>
+      api.getAlertsForStudents(CURRENT_PARENT.childIds).then((a) => setAlerts([...a]));
     load();
     return subscribe(load);
   }, []);

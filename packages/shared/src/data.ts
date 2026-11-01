@@ -1,10 +1,16 @@
 /**
  * Seed / mock data. Stands in for the backend until a real API is wired up.
+ *
+ * A school day has two trips (windows):
+ *   - morning:   pick up each child from home, drop them all at school.
+ *   - afternoon: pick up everyone from school, drop each child at home or a
+ *                designated drop-off point (which may differ from their home).
  */
 
-import type { Alert, Driver, Parent, Student, Trip, Van } from './types';
+import type { Driver, Parent, Student, Trip, Van } from './types';
 
 const today = new Date().toISOString().slice(0, 10);
+const at = (time: string) => `${today}T${time}`;
 
 export const vans: Van[] = [
   { id: 'van-1', plateNo: 'WP CAB-4471', model: 'Toyota HiAce', capacity: 15 },
@@ -21,7 +27,7 @@ export const drivers: Driver[] = [
 ];
 
 export const parents: Parent[] = [
-  { id: 'parent-1', name: 'Shenali Fernando', phone: '+94 71 987 6543', childIds: ['stu-1'] },
+  { id: 'parent-1', name: 'Shenali Fernando', phone: '+94 71 987 6543', childIds: ['stu-1', 'stu-4'] },
   { id: 'parent-2', name: 'Kasun Silva', phone: '+94 76 222 1133', childIds: ['stu-2', 'stu-3'] },
 ];
 
@@ -52,7 +58,7 @@ export const students: Student[] = [
   },
   {
     id: 'stu-4',
-    name: 'Ravindu Jay',
+    name: 'Ravindu Fernando',
     grade: 'Grade 5',
     parentId: 'parent-1',
     stopId: 'stop-3',
@@ -60,9 +66,13 @@ export const students: Student[] = [
   },
 ];
 
+const allStudentIds = students.map((s) => s.id);
+const SCHOOL = { address: 'Royal College, Colombo 07', lat: 6.9061, lng: 79.8612 };
+
 export const morningTrip: Trip = {
   id: 'trip-am',
-  routeName: 'Route A — Morning',
+  routeName: 'Route A',
+  window: 'morning',
   direction: 'to_school',
   status: 'in_progress',
   driverId: 'driver-1',
@@ -75,7 +85,8 @@ export const morningTrip: Trip = {
       address: '21 Lake Rd, Rajagiriya',
       lat: 6.9108,
       lng: 79.8946,
-      scheduledAt: `${today}T06:45:00`,
+      kind: 'pickup',
+      scheduledAt: at('06:45:00'),
       studentIds: ['stu-1'],
     },
     {
@@ -84,7 +95,8 @@ export const morningTrip: Trip = {
       address: '8 Temple Ln, Nugegoda',
       lat: 6.8724,
       lng: 79.889,
-      scheduledAt: `${today}T06:58:00`,
+      kind: 'pickup',
+      scheduledAt: at('06:58:00'),
       studentIds: ['stu-2', 'stu-3'],
     },
     {
@@ -93,37 +105,90 @@ export const morningTrip: Trip = {
       address: '45 Hill St, Kotte',
       lat: 6.8905,
       lng: 79.903,
-      scheduledAt: `${today}T07:10:00`,
+      kind: 'pickup',
+      scheduledAt: at('07:10:00'),
+      studentIds: ['stu-4'],
+    },
+    {
+      id: 'stop-school-am',
+      label: 'School',
+      address: SCHOOL.address,
+      lat: SCHOOL.lat,
+      lng: SCHOOL.lng,
+      kind: 'dropoff',
+      scheduledAt: at('07:30:00'),
+      studentIds: allStudentIds,
+    },
+  ],
+};
+
+export const afternoonTrip: Trip = {
+  id: 'trip-pm',
+  routeName: 'Route A',
+  window: 'afternoon',
+  direction: 'from_school',
+  status: 'scheduled',
+  driverId: 'driver-1',
+  vanId: 'van-1',
+  date: today,
+  stops: [
+    {
+      id: 'stop-school-pm',
+      label: 'School',
+      address: SCHOOL.address,
+      lat: SCHOOL.lat,
+      lng: SCHOOL.lng,
+      kind: 'pickup',
+      scheduledAt: at('13:30:00'),
+      studentIds: allStudentIds,
+    },
+    {
+      id: 'stop-4',
+      label: 'Lake Road',
+      address: '21 Lake Rd, Rajagiriya',
+      lat: 6.9108,
+      lng: 79.8946,
+      kind: 'dropoff',
+      scheduledAt: at('13:50:00'),
+      studentIds: ['stu-1'],
+    },
+    {
+      id: 'stop-5',
+      label: 'Temple Lane',
+      address: '8 Temple Ln, Nugegoda',
+      lat: 6.8724,
+      lng: 79.889,
+      kind: 'dropoff',
+      scheduledAt: at('14:05:00'),
+      studentIds: ['stu-2', 'stu-3'],
+    },
+    {
+      // Designated afternoon drop-off — grandparents', not the morning home.
+      id: 'stop-6',
+      label: "Grandparents' (designated)",
+      address: '12 Flower Rd, Nugegoda',
+      lat: 6.8698,
+      lng: 79.8995,
+      kind: 'dropoff',
+      scheduledAt: at('14:18:00'),
       studentIds: ['stu-4'],
     },
   ],
 };
 
-export const alerts: Alert[] = [
-  {
-    id: 'alert-1',
-    kind: 'trip_started',
-    studentId: 'stu-1',
-    title: 'Van on the way',
-    body: 'Route A has started. Amaya will be picked up at Lake Road around 6:45 AM.',
-    createdAt: `${today}T06:30:00`,
-    read: false,
-  },
-  {
-    id: 'alert-2',
-    kind: 'approaching_stop',
-    studentId: 'stu-1',
-    title: 'Arriving soon',
-    body: 'The van is about 3 minutes from Lake Road.',
-    createdAt: `${today}T06:42:00`,
-    read: false,
-  },
-];
+/** Both of today's trips, in order. */
+export const trips: Trip[] = [morningTrip, afternoonTrip];
 
-export function studentsForStop(stopId: string): Student[] {
-  return students.filter((s) => s.stopId === stopId);
+export function tripById(id: string): Trip | undefined {
+  return trips.find((t) => t.id === id);
 }
 
 export function studentById(id: string): Student | undefined {
   return students.find((s) => s.id === id);
+}
+
+export function studentsAtStop(studentIds: string[]): Student[] {
+  return studentIds
+    .map(studentById)
+    .filter((s): s is Student => Boolean(s));
 }

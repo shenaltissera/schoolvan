@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import {
   subscribe,
   type Student,
   type Trip,
+  type TripWindow,
 } from '@schoolvan/shared';
 
 import { StatusChip } from '@/components/status-chip';
@@ -24,8 +25,32 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/** The stop nearest home for a child in a trip (pickup in the morning,
+ *  drop-off in the afternoon). */
+function homeStop(trip: Trip, studentId: string) {
+  const wantKind = trip.window === 'morning' ? 'pickup' : 'dropoff';
+  return trip.stops.find((s) => s.kind === wantKind && s.studentIds.includes(studentId));
+}
+
+function WindowStatus({ trip, studentId }: { trip: Trip; studentId: string }) {
+  const stop = homeStop(trip, studentId);
+  const label = trip.window === 'morning' ? 'Morning' : 'Afternoon';
+  return (
+    <View style={styles.windowRow}>
+      <View style={{ flex: 1 }}>
+        <ThemedText type="smallBold">{label}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {trip.window === 'morning' ? 'Home → School' : 'School → Home'}
+          {stop ? ` · ${stop.label} ~ ${formatTime(stop.scheduledAt)}` : ''}
+        </ThemedText>
+      </View>
+      <StatusChip status={api.getRideStatus(trip.id, studentId)} />
+    </View>
+  );
+}
+
 export default function TrackScreen() {
-  const [trip, setTrip] = useState<Trip | null>(null);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [, force] = useState(0);
 
   const children: Student[] = CURRENT_PARENT.childIds
@@ -33,20 +58,27 @@ export default function TrackScreen() {
     .filter((s): s is Student => Boolean(s));
 
   useEffect(() => {
-    api.getTodayTrip().then(setTrip);
+    api.getTrips().then(setTrips);
     return subscribe(() => force((n) => n + 1));
   }, []);
 
+  const activeWindow: TripWindow = new Date().getHours() < 12 ? 'morning' : 'afternoon';
+  const activeTrip = useMemo(
+    () => trips.find((t) => t.window === activeWindow),
+    [trips, activeWindow],
+  );
   const firstChild = children[0];
-  const myStop = trip?.stops.find((s) => s.id === firstChild?.stopId);
-  const vanMoving = trip?.status === 'in_progress';
+  const myStop = activeTrip && firstChild ? homeStop(activeTrip, firstChild.id) : undefined;
+  const vanMoving = activeTrip?.status === 'in_progress';
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">Good morning</ThemedText>
+            <ThemedText type="subtitle">
+              {activeWindow === 'morning' ? 'Good morning' : 'Good afternoon'}
+            </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {CURRENT_PARENT.name}
             </ThemedText>
@@ -59,7 +91,8 @@ export default function TrackScreen() {
             </ThemedText>
             {myStop && (
               <ThemedText type="small" style={{ color: '#000' }}>
-                Arriving {myStop.label} ~ {formatTime(myStop.scheduledAt)}
+                {activeWindow === 'morning' ? 'Pickup' : 'Drop-off'} at {myStop.label} ~{' '}
+                {formatTime(myStop.scheduledAt)}
               </ThemedText>
             )}
             <ThemedText type="small" style={styles.mapHint}>
@@ -73,20 +106,24 @@ export default function TrackScreen() {
 
           {children.map((child) => (
             <ThemedView key={child.id} type="backgroundElement" style={styles.childCard}>
-              <View style={styles.childAvatar}>
-                <ThemedText type="smallBold" style={{ color: '#000' }}>
-                  {child.name.charAt(0)}
-                </ThemedText>
+              <View style={styles.childHeader}>
+                <View style={styles.childAvatar}>
+                  <ThemedText type="smallBold" style={{ color: '#000' }}>
+                    {child.name.charAt(0)}
+                  </ThemedText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="default" style={styles.semibold}>
+                    {child.name}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {child.grade}
+                  </ThemedText>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="default" style={styles.semibold}>
-                  {child.name}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {child.grade}
-                </ThemedText>
-              </View>
-              <StatusChip status={api.getRideStatus(child.id)} />
+              {trips.map((trip) => (
+                <WindowStatus key={trip.id} trip={trip} studentId={child.id} />
+              ))}
             </ThemedView>
           ))}
         </ScrollView>
@@ -105,7 +142,7 @@ const styles = StyleSheet.create({
   },
   header: { gap: Spacing.one },
   map: {
-    height: 220,
+    height: 200,
     borderRadius: Spacing.four,
     backgroundColor: Brand.primary,
     alignItems: 'center',
@@ -115,13 +152,8 @@ const styles = StyleSheet.create({
   },
   mapHint: { color: '#00000099', marginTop: Spacing.one },
   sectionTitle: { marginTop: Spacing.one },
-  childCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-  },
+  childCard: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
+  childHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   childAvatar: {
     width: 44,
     height: 44,
@@ -129,6 +161,14 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  windowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingTop: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#00000018',
   },
   semibold: { fontWeight: '600' },
 });

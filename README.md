@@ -2,8 +2,8 @@
 
 Two mobile apps for school van / student transport, built with **Expo (React Native)** so they run on both **iOS and Android** from one codebase:
 
-- **Driver app** (`apps/driver`) — today's route, per-student pickup/drop-off tracking, and a live-location share toggle.
-- **Parent app** (`apps/parent`) — live van tracking with ETA to your stop, your children's ride status, and alerts.
+- **Driver app** (`apps/driver`) — switch between the **morning** (home → school) and **afternoon** (school → home / designated drop-off) runs, mark each child picked up or dropped off, and toggle live-location sharing. Every action notifies the parent.
+- **Parent app** (`apps/parent`) — live van tracking with ETA, each child's status for **both** daily windows, and an alerts feed that fills as the driver acts.
 
 Both apps share domain models, mock API, and brand tokens from `packages/shared`.
 
@@ -63,7 +63,9 @@ npm run typecheck
 
 This is a working scaffold with **mock data** — the apps render real-looking routes,
 students, and alerts from an in-memory store in `packages/shared/src/api.ts`. The driver
-app and parent app stay in sync through that store during a session.
+app and parent app stay in sync through that store during a session: a school day has two
+trips (morning and afternoon), and marking a child picked up or dropped off in the driver
+app generates a notification that appears in the parent app's Alerts tab.
 
 Not yet wired up (natural next steps):
 
