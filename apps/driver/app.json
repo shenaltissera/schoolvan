@@ -39,6 +39,12 @@
           "photosPermission": "Allow SchoolVan Driver to access your photos to set the driver and assistant photos.",
           "cameraPermission": "Allow SchoolVan Driver to use the camera to take the driver and assistant photos."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SchoolVan Driver shares your location with parents only while you are online on a shift."
+        }
       ]
     ],
     "experiments": {

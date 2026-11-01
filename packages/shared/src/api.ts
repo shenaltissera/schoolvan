@@ -172,7 +172,8 @@ export function startShift(tripId: string): Promise<void> {
 
   trip.status = 'in_progress';
   shiftStartedAt.set(tripId, new Date().toISOString());
-  location = { ...location, tripId, speedKmh: 28, updatedAt: new Date().toISOString() };
+  // Position is then driven by the driver app's real GPS stream.
+  location = { ...location, tripId, speedKmh: 0, updatedAt: new Date().toISOString() };
 
   for (const studentId of tripStudentIds(trip)) {
     const student = studentById(studentId);

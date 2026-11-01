@@ -17,6 +17,7 @@ import { StatusChip } from '@/components/status-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
+import { useLocationSharing } from '@/location/use-location-sharing';
 
 /** Tapping a student toggles the action appropriate to the stop. */
 function nextStatus(kind: Stop['kind'], current: RideStatus): RideStatus {
@@ -53,6 +54,17 @@ export default function RouteScreen() {
 
   const online = trip?.status === 'in_progress';
   const startedAt = trip ? api.getShiftStartedAt(trip.id) : undefined;
+  const share = useLocationSharing(online);
+
+  function onlineSubtitle(): string {
+    const since = startedAt ? ` · since ${formatTime(startedAt)}` : '';
+    if (share.state === 'denied') return 'Location permission needed to share';
+    if (share.state === 'error') return "Couldn't read your location";
+    if (share.last) {
+      return `Sharing location · ${share.last.lat.toFixed(4)}, ${share.last.lng.toFixed(4)}${since}`;
+    }
+    return `Starting location sharing…${since}`;
+  }
 
   const goOnline = useCallback(() => {
     if (trip) api.startShift(trip.id);
@@ -109,9 +121,7 @@ export default function RouteScreen() {
                 <ThemedText type="smallBold">{online ? 'Online' : "You're offline"}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {online
-                    ? `Sharing live location${
-                        startedAt ? ` · since ${formatTime(startedAt)}` : ''
-                      }`
+                    ? onlineSubtitle()
                     : `Go online to start your ${WINDOW_LABEL[window].toLowerCase()} shift`}
                 </ThemedText>
               </View>
