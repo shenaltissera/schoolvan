@@ -142,6 +142,86 @@ export function updateVanLocation(partial: Partial<Omit<VanLocation, 'tripId'>>)
   return location;
 }
 
+// --- Shift lifecycle (driver goes online / offline) -----------------------
+
+const shiftStartedAt = new Map<string, string>();
+
+function tripStudentIds(trip: Trip): string[] {
+  const set = new Set<string>();
+  for (const stop of trip.stops) for (const id of stop.studentIds) set.add(id);
+  return Array.from(set);
+}
+
+function homeStopFor(trip: Trip, studentId: string) {
+  const kind = trip.window === 'morning' ? 'pickup' : 'dropoff';
+  return trip.stops.find((s) => s.kind === kind && s.studentIds.includes(studentId));
+}
+
+export function isOnline(tripId: string): boolean {
+  return tripById(tripId)?.status === 'in_progress';
+}
+
+export function getShiftStartedAt(tripId: string): string | undefined {
+  return shiftStartedAt.get(tripId);
+}
+
+/** Driver goes online: starts the trip, shares location, notifies parents. */
+export function startShift(tripId: string): Promise<void> {
+  const trip = tripById(tripId);
+  if (!trip || trip.status === 'in_progress') return wait(undefined);
+
+  trip.status = 'in_progress';
+  shiftStartedAt.set(tripId, new Date().toISOString());
+  location = { ...location, tripId, speedKmh: 28, updatedAt: new Date().toISOString() };
+
+  for (const studentId of tripStudentIds(trip)) {
+    const student = studentById(studentId);
+    if (!student) continue;
+    const stop = homeStopFor(trip, studentId);
+    const when = stop ? stop.scheduledAt.slice(11, 16) : '';
+    alerts.unshift({
+      id: `alert-${Date.now()}-start-${studentId}`,
+      kind: 'trip_started',
+      studentId,
+      title: trip.window === 'morning' ? 'Van on the way' : 'Heading home',
+      body:
+        trip.window === 'morning'
+          ? `The morning van has started. ${student.name} will be picked up${stop ? ` around ${when}` : ''}.`
+          : `The van has left school. ${student.name} will be dropped off${stop ? ` around ${when}` : ''}.`,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
+  }
+  emit();
+  return wait(undefined);
+}
+
+/** Driver ends the shift: stops the trip, stops sharing, notifies parents. */
+export function endShift(tripId: string): Promise<void> {
+  const trip = tripById(tripId);
+  if (!trip) return wait(undefined);
+
+  trip.status = 'completed';
+  shiftStartedAt.delete(tripId);
+  location = { ...location, speedKmh: 0, updatedAt: new Date().toISOString() };
+
+  for (const studentId of tripStudentIds(trip)) {
+    const student = studentById(studentId);
+    if (!student) continue;
+    alerts.unshift({
+      id: `alert-${Date.now()}-end-${studentId}`,
+      kind: 'trip_completed',
+      studentId,
+      title: 'Trip completed',
+      body: `${student.name}'s ${trip.window} trip is complete.`,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
+  }
+  emit();
+  return wait(undefined);
+}
+
 export function getAlerts(): Promise<Alert[]> {
   return wait(alerts);
 }

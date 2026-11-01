@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -34,7 +34,6 @@ const WINDOW_LABEL: Record<TripWindow, string> = { morning: 'Morning', afternoon
 export default function RouteScreen() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [window, setWindow] = useState<TripWindow>('morning');
-  const [sharing, setSharing] = useState(false);
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -52,10 +51,20 @@ export default function RouteScreen() {
     [],
   );
 
-  const toggleSharing = useCallback((on: boolean) => {
-    setSharing(on);
-    api.updateVanLocation({ speedKmh: on ? 32 : 0 });
-  }, []);
+  const online = trip?.status === 'in_progress';
+  const startedAt = trip ? api.getShiftStartedAt(trip.id) : undefined;
+
+  const goOnline = useCallback(() => {
+    if (trip) api.startShift(trip.id);
+  }, [trip]);
+
+  const confirmEndShift = useCallback(() => {
+    if (!trip) return;
+    Alert.alert('End shift', 'This stops sharing your location and notifies parents.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'End shift', style: 'destructive', onPress: () => api.endShift(trip.id) },
+    ]);
+  }, [trip]);
 
   return (
     <ThemedView style={styles.container}>
@@ -88,14 +97,32 @@ export default function RouteScreen() {
             })}
           </ThemedView>
 
-          <ThemedView type="backgroundElement" style={styles.shareCard}>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="smallBold">Share live location</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {sharing ? 'Parents can see the van' : 'Off — van hidden from parents'}
-              </ThemedText>
+          <ThemedView type="backgroundElement" style={styles.shiftCard}>
+            <View style={styles.shiftTop}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: online ? Brand.success : Brand.neutral },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <ThemedText type="smallBold">{online ? 'Online' : "You're offline"}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {online
+                    ? `Sharing live location${
+                        startedAt ? ` · since ${formatTime(startedAt)}` : ''
+                      }`
+                    : `Go online to start your ${WINDOW_LABEL[window].toLowerCase()} shift`}
+                </ThemedText>
+              </View>
             </View>
-            <Switch value={sharing} onValueChange={toggleSharing} trackColor={{ true: Brand.success }} />
+            <Pressable
+              onPress={online ? confirmEndShift : goOnline}
+              style={[styles.shiftBtn, { backgroundColor: online ? Brand.danger : Brand.success }]}>
+              <ThemedText type="smallBold" style={styles.shiftBtnText}>
+                {online ? 'End shift' : 'Go Online'}
+              </ThemedText>
+            </Pressable>
           </ThemedView>
 
           {trip?.stops.map((stop, i) => (
@@ -180,13 +207,19 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
   },
   segmentBtnActive: { backgroundColor: Brand.primary },
-  shareCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
+  shiftCard: {
     padding: Spacing.three,
     borderRadius: Spacing.three,
+    gap: Spacing.three,
   },
+  shiftTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  shiftBtn: {
+    borderRadius: Spacing.three,
+    paddingVertical: Spacing.three,
+    alignItems: 'center',
+  },
+  shiftBtnText: { color: '#fff', fontSize: 16 },
   stopCard: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
   stopHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   stopTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },

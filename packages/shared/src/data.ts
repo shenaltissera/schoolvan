@@ -74,7 +74,7 @@ export const morningTrip: Trip = {
   routeName: 'Route A',
   window: 'morning',
   direction: 'to_school',
-  status: 'in_progress',
+  status: 'scheduled',
   driverId: 'driver-1',
   vanId: 'van-1',
   date: today,
