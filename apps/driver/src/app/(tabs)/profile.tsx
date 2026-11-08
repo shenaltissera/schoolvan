@@ -23,12 +23,12 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function ProfileScreen() {
-  const { account, signOut } = useAccount();
+  const { profile, signOut } = useAccount();
 
-  if (!account) return null;
+  if (!profile) return null;
 
   function confirmSignOut() {
-    Alert.alert('Sign out', 'This removes your account from this device.', [
+    Alert.alert('Sign out', 'You will need to log in again to run routes.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
     ]);
@@ -39,35 +39,43 @@ export default function ProfileScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.avatarWrap}>
-            <Image source={{ uri: account.driverPhotoUri }} style={styles.avatar} />
-            <ThemedText type="subtitle">{account.driverName}</ThemedText>
+            {profile.driverPhotoUrl ? (
+              <Image source={{ uri: profile.driverPhotoUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <ThemedText type="title" style={{ color: '#000' }}>
+                  {profile.driverName.charAt(0)}
+                </ThemedText>
+              </View>
+            )}
+            <ThemedText type="subtitle">{profile.driverName}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               Driver
             </ThemedText>
           </View>
 
           <ThemedView type="backgroundElement" style={styles.card}>
-            <Row label="Vehicle number" value={account.vehicleNumber} />
-            <Row label="Association reg. no." value={account.associationRegNo} />
+            <Row label="Vehicle number" value={profile.vehicleNumber} />
+            <Row label="Association reg. no." value={profile.associationRegNo} />
           </ThemedView>
 
-          {account.assistantName ? (
+          {profile.assistantName ? (
             <ThemedView type="backgroundElement" style={styles.card}>
               <ThemedText type="smallBold" style={styles.cardTitle}>
                 Assistant
               </ThemedText>
               <View style={styles.assistantRow}>
-                {account.assistantPhotoUri ? (
-                  <Image source={{ uri: account.assistantPhotoUri }} style={styles.assistantPhoto} />
+                {profile.assistantPhotoUrl ? (
+                  <Image source={{ uri: profile.assistantPhotoUrl }} style={styles.assistantPhoto} />
                 ) : (
                   <View style={[styles.assistantPhoto, styles.assistantPlaceholder]}>
                     <ThemedText type="smallBold" style={{ color: '#000' }}>
-                      {account.assistantName.charAt(0)}
+                      {profile.assistantName.charAt(0)}
                     </ThemedText>
                   </View>
                 )}
                 <ThemedText type="default" style={styles.semibold}>
-                  {account.assistantName}
+                  {profile.assistantName}
                 </ThemedText>
               </View>
             </ThemedView>
@@ -99,6 +107,7 @@ const styles = StyleSheet.create({
     borderRadius: 42,
     backgroundColor: Brand.primary,
   },
+  avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   card: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
   cardTitle: { marginBottom: Spacing.one },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

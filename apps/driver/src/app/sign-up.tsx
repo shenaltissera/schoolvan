@@ -1,6 +1,7 @@
-import { Redirect, router } from 'expo-router';
+import { Link, Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -28,6 +29,8 @@ function LabeledInput({
   required,
   error,
   autoCapitalize = 'words',
+  keyboardType = 'default',
+  secureTextEntry,
 }: {
   label: string;
   value: string;
@@ -36,6 +39,8 @@ function LabeledInput({
   required?: boolean;
   error?: string;
   autoCapitalize?: 'none' | 'words' | 'characters';
+  keyboardType?: 'default' | 'email-address';
+  secureTextEntry?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -50,6 +55,9 @@ function LabeledInput({
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         autoCapitalize={autoCapitalize}
+        keyboardType={keyboardType}
+        secureTextEntry={secureTextEntry}
+        autoCorrect={false}
         style={[
           styles.input,
           {
@@ -69,8 +77,10 @@ function LabeledInput({
 }
 
 export default function SignUpScreen() {
-  const { account, loading, saveAccount } = useAccount();
+  const { session, profile, loading, signUp } = useAccount();
 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [driverName, setDriverName] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [associationRegNo, setAssociationRegNo] = useState('');
@@ -82,10 +92,12 @@ export default function SignUpScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   // Already registered — go straight to the app.
-  if (!loading && account) return <Redirect href="/" />;
+  if (!loading && session && profile) return <Redirect href="/" />;
 
   async function onSubmit() {
     const next: Record<string, string> = {};
+    if (!email.trim()) next.email = 'Email is required';
+    if (password.length < 6) next.password = 'Password must be at least 6 characters';
     if (!driverName.trim()) next.driverName = 'Driver name is required';
     if (!vehicleNumber.trim()) next.vehicleNumber = 'Vehicle number is required';
     if (!associationRegNo.trim()) next.associationRegNo = 'Registration number is required';
@@ -94,15 +106,27 @@ export default function SignUpScreen() {
     if (Object.keys(next).length > 0) return;
 
     setSubmitting(true);
-    await saveAccount({
-      driverName: driverName.trim(),
-      vehicleNumber: vehicleNumber.trim(),
-      associationRegNo: associationRegNo.trim(),
+    const result = await signUp({
+      email,
+      password,
+      driverName,
+      vehicleNumber,
+      associationRegNo,
       driverPhotoUri: driverPhotoUri!,
       assistantName: assistantName.trim() || undefined,
       assistantPhotoUri,
     });
-    router.replace('/');
+    setSubmitting(false);
+
+    if (result.ok) {
+      router.replace('/');
+    } else if ('needsConfirmation' in result) {
+      Alert.alert('Confirm your email', result.error, [
+        { text: 'OK', onPress: () => router.replace('/login') },
+      ]);
+    } else {
+      Alert.alert('Could not create account', result.error);
+    }
   }
 
   return (
@@ -145,6 +169,26 @@ export default function SignUpScreen() {
             ) : null}
 
             <LabeledInput
+              label="Email"
+              required
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              error={errors.email}
+            />
+            <LabeledInput
+              label="Password"
+              required
+              value={password}
+              onChangeText={setPassword}
+              placeholder="At least 6 characters"
+              autoCapitalize="none"
+              secureTextEntry
+              error={errors.password}
+            />
+            <LabeledInput
               label="Driver name"
               required
               value={driverName}
@@ -186,8 +230,19 @@ export default function SignUpScreen() {
               </ThemedText>
             </Pressable>
 
+            <View style={styles.loginRow}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Already have an account?{' '}
+              </ThemedText>
+              <Link href="/login" replace>
+                <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+                  Log in
+                </ThemedText>
+              </Link>
+            </View>
+
             <ThemedText type="small" themeColor="textSecondary" style={styles.footnote}>
-              * required. Your details are stored on this device for now.
+              * required.
             </ThemedText>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -224,5 +279,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   submitText: { color: '#000', fontSize: 16 },
+  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   footnote: { textAlign: 'center' },
 });
