@@ -81,3 +81,46 @@ create policy "driver_photos_update_own"
     bucket_id = 'driver-photos'
     and auth.uid()::text = (storage.foldername(name))[1]
   );
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Students: the children a driver carries. One row per child, owned by the
+-- driver. (Parent linkage is added later via invites / acceptance.)
+-- ─────────────────────────────────────────────────────────────────────────
+create table if not exists public.students (
+  id           uuid primary key default gen_random_uuid(),
+  driver_id    uuid not null references public.drivers (id) on delete cascade,
+  name         text not null,
+  grade        text,
+  home_address text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.students enable row level security;
+
+drop policy if exists "students_own" on public.students;
+create policy "students_own"
+  on public.students for all
+  using (auth.uid() = driver_id)
+  with check (auth.uid() = driver_id);
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Invites: a shareable token linking a parent to one of the driver's
+-- students. The driver creates it; a parent later accepts it (future work).
+-- ─────────────────────────────────────────────────────────────────────────
+create table if not exists public.invites (
+  id          uuid primary key default gen_random_uuid(),
+  token       text not null unique default replace(gen_random_uuid()::text, '-', ''),
+  driver_id   uuid not null references public.drivers (id) on delete cascade,
+  student_id  uuid not null references public.students (id) on delete cascade,
+  status      text not null default 'pending',
+  accepted_by uuid references auth.users (id),
+  created_at  timestamptz not null default now()
+);
+
+alter table public.invites enable row level security;
+
+drop policy if exists "invites_own" on public.invites;
+create policy "invites_own"
+  on public.invites for all
+  using (auth.uid() = driver_id)
+  with check (auth.uid() = driver_id);

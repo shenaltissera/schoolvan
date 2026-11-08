@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -82,11 +83,18 @@ export default function RouteScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle">{trip?.routeName ?? 'Route'}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {window === 'morning' ? 'Home → School' : 'School → Home'}
-            </ThemedText>
+          <View style={styles.headerRow}>
+            <View style={styles.header}>
+              <ThemedText type="subtitle">{trip?.routeName ?? 'Route'}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {window === 'morning' ? 'Home → School' : 'School → Home'}
+              </ThemedText>
+            </View>
+            <Pressable onPress={() => router.push('/students')} hitSlop={10}>
+              <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+                Students ›
+              </ThemedText>
+            </Pressable>
           </View>
 
           {/* Window switch */}
@@ -202,6 +210,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.five,
   },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   header: { gap: Spacing.one },
   semibold: { fontWeight: '600' },
   segment: {
