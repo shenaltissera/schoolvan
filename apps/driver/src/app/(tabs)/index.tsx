@@ -14,6 +14,7 @@ import {
   type TripWindow,
 } from '@schoolvan/shared';
 
+import { useAccount } from '@/auth/account';
 import { StatusChip } from '@/components/status-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -34,6 +35,7 @@ const WINDOWS: TripWindow[] = ['morning', 'afternoon'];
 const WINDOW_LABEL: Record<TripWindow, string> = { morning: 'Morning', afternoon: 'Afternoon' };
 
 export default function RouteScreen() {
+  const { profile } = useAccount();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [window, setWindow] = useState<TripWindow>('morning');
   const [, force] = useState(0);
@@ -55,7 +57,7 @@ export default function RouteScreen() {
 
   const online = trip?.status === 'in_progress';
   const startedAt = trip ? api.getShiftStartedAt(trip.id) : undefined;
-  const share = useLocationSharing(online);
+  const share = useLocationSharing(online, profile?.id);
 
   function onlineSubtitle(): string {
     const since = startedAt ? ` · since ${formatTime(startedAt)}` : '';

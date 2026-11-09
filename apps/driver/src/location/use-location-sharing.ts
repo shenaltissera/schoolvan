@@ -1,6 +1,7 @@
-import { api } from '@schoolvan/shared';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
+
+import { goOffline, publishLocation } from '@/lib/location';
 
 export type SharingState = 'idle' | 'requesting' | 'denied' | 'sharing' | 'error';
 
@@ -10,13 +11,12 @@ export interface SharingInfo {
 }
 
 /**
- * While `active` is true, requests foreground location permission and streams
- * the driver's position to the shared store via api.updateVanLocation — the
- * single "publish location" seam a backend/realtime channel will plug into so
- * the position reaches parents' devices. Stops and clears when `active` flips
- * to false or the component unmounts.
+ * While `active` is true (and a driverId is known), requests foreground
+ * location permission and streams the driver's position to Supabase
+ * (van_locations) so linked parents can track the van live over realtime.
+ * Marks the driver offline when `active` turns false or on unmount.
  */
-export function useLocationSharing(active: boolean): SharingInfo {
+export function useLocationSharing(active: boolean, driverId?: string): SharingInfo {
   const [state, setState] = useState<SharingState>('idle');
   const [last, setLast] = useState<SharingInfo['last']>(null);
   const subRef = useRef<Location.LocationSubscription | null>(null);
@@ -25,6 +25,7 @@ export function useLocationSharing(active: boolean): SharingInfo {
     let cancelled = false;
 
     async function start() {
+      if (!driverId) return;
       try {
         setState('requesting');
         const { granted } = await Location.requestForegroundPermissionsAsync();
@@ -38,7 +39,7 @@ export function useLocationSharing(active: boolean): SharingInfo {
           (pos) => {
             const { latitude, longitude, heading, speed } = pos.coords;
             const speedKmh = Math.max(0, Math.round((speed ?? 0) * 3.6));
-            api.updateVanLocation({
+            publishLocation(driverId, {
               lat: latitude,
               lng: longitude,
               headingDeg: heading ?? 0,
@@ -58,19 +59,20 @@ export function useLocationSharing(active: boolean): SharingInfo {
       subRef.current = null;
     }
 
-    if (active) {
+    if (active && driverId) {
       start();
     } else {
       stop();
       setState('idle');
       setLast(null);
+      if (driverId) goOffline(driverId);
     }
 
     return () => {
       cancelled = true;
       stop();
     };
-  }, [active]);
+  }, [active, driverId]);
 
   return { state, last };
 }

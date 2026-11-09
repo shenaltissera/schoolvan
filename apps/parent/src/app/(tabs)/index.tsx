@@ -10,11 +10,21 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { listMyChildren, type Child } from '@/lib/children';
+import { useVanLocation } from '@/lib/van-location';
+
+function updatedAgo(iso: string): string {
+  const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+  return `${Math.round(secs / 3600)}h ago`;
+}
 
 export default function TrackScreen() {
   const { profile, signOut } = useAccount();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const van = useVanLocation(children[0]?.driverId);
+  const online = van?.online && van.lat != null && van.lng != null;
 
   useFocusEffect(
     useCallback(() => {
@@ -56,15 +66,32 @@ export default function TrackScreen() {
             </Pressable>
           </View>
 
-          {/* Live map placeholder — shows the van when the driver is online. */}
-          <View style={styles.map}>
-            <ThemedText type="smallBold" style={{ color: '#000' }}>
-              Live tracking
-            </ThemedText>
-            <ThemedText type="small" style={styles.mapHint}>
-              The van appears here when your driver goes online.
-            </ThemedText>
-          </View>
+          {/* Live van — updates in realtime while the driver is online. */}
+          <ThemedView type="backgroundElement" style={[styles.map, online && styles.mapOnline]}>
+            {online && van ? (
+              <>
+                <ThemedText type="smallBold" style={{ color: '#000' }}>
+                  🚐 Van en route
+                </ThemedText>
+                <ThemedText type="small" style={{ color: '#000' }}>
+                  {van.lat!.toFixed(4)}, {van.lng!.toFixed(4)}
+                  {van.speedKmh ? ` · ${van.speedKmh} km/h` : ''}
+                </ThemedText>
+                <ThemedText type="small" style={styles.mapHint}>
+                  updated {updatedAgo(van.updatedAt)} · live map coming soon
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <ThemedText type="smallBold" themeColor="text">
+                  Van is offline
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  You&apos;ll see the van here the moment your driver goes online.
+                </ThemedText>
+              </>
+            )}
+          </ThemedView>
 
           <ThemedText type="smallBold" style={styles.sectionTitle}>
             My children
@@ -120,12 +147,12 @@ const styles = StyleSheet.create({
   map: {
     height: 180,
     borderRadius: Spacing.four,
-    backgroundColor: Brand.primary,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.one,
     padding: Spacing.three,
   },
+  mapOnline: { backgroundColor: Brand.primary },
   mapHint: { color: '#00000099', textAlign: 'center' },
   sectionTitle: { marginTop: Spacing.one },
   empty: { padding: Spacing.four, borderRadius: Spacing.three, gap: Spacing.one },

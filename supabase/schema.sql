@@ -174,3 +174,43 @@ end;
 $$;
 
 grant execute on function public.accept_invite(text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Live van location: one row per driver, upserted while a shift is online.
+-- The driver writes it; a parent may read the location of their child's
+-- driver. Added to the realtime publication so parents get live updates.
+-- ─────────────────────────────────────────────────────────────────────────
+create table if not exists public.van_locations (
+  driver_id  uuid primary key references public.drivers (id) on delete cascade,
+  lat        double precision,
+  lng        double precision,
+  heading    double precision,
+  speed_kmh  double precision,
+  online     boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.van_locations enable row level security;
+
+drop policy if exists "van_loc_driver" on public.van_locations;
+create policy "van_loc_driver"
+  on public.van_locations for all
+  using (auth.uid() = driver_id)
+  with check (auth.uid() = driver_id);
+
+drop policy if exists "van_loc_parent_read" on public.van_locations;
+create policy "van_loc_parent_read"
+  on public.van_locations for select
+  using (exists (
+    select 1 from public.students s
+    where s.driver_id = van_locations.driver_id and s.parent_id = auth.uid()
+  ));
+
+do $$ begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'van_locations'
+  ) then
+    alter publication supabase_realtime add table public.van_locations;
+  end if;
+end $$;

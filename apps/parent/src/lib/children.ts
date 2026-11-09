@@ -5,13 +5,14 @@ export interface Child {
   name: string;
   grade: string | null;
   homeAddress: string | null;
+  driverId: string;
 }
 
 /** The children linked to the signed-in parent (RLS scopes to parent_id). */
 export async function listMyChildren(): Promise<Child[]> {
   const { data, error } = await supabase
     .from('students')
-    .select('id, name, grade, home_address')
+    .select('id, name, grade, home_address, driver_id')
     .order('name');
   if (error) throw error;
   return (data ?? []).map((r) => ({
@@ -19,6 +20,7 @@ export async function listMyChildren(): Promise<Child[]> {
     name: r.name,
     grade: r.grade ?? null,
     homeAddress: r.home_address ?? null,
+    driverId: r.driver_id,
   }));
 }
 
