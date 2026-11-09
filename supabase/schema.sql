@@ -124,3 +124,53 @@ create policy "invites_own"
   on public.invites for all
   using (auth.uid() = driver_id)
   with check (auth.uid() = driver_id);
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Parent linkage: a parent (auth user) is bound to a student when they
+-- accept an invite. Parents get their own profile row + read access to
+-- their linked children.
+-- ─────────────────────────────────────────────────────────────────────────
+alter table public.students add column if not exists parent_id uuid references auth.users (id);
+
+drop policy if exists "students_parent_read" on public.students;
+create policy "students_parent_read"
+  on public.students for select
+  using (auth.uid() = parent_id);
+
+create table if not exists public.parents (
+  id         uuid primary key references auth.users (id) on delete cascade,
+  name       text not null,
+  phone      text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.parents enable row level security;
+
+drop policy if exists "parents_own" on public.parents;
+create policy "parents_own"
+  on public.parents for all
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- Accept an invite: binds the calling parent to the student. SECURITY DEFINER
+-- so a parent (who can't normally write the invite/student rows) can accept.
+create or replace function public.accept_invite(invite_token text)
+returns table (student_id uuid, student_name text)
+language plpgsql security definer set search_path = public as $$
+declare
+  inv public.invites;
+begin
+  select * into inv from public.invites where token = invite_token;
+  if inv.id is null then
+    raise exception 'Invite not found';
+  end if;
+  if inv.status = 'accepted' and inv.accepted_by is distinct from auth.uid() then
+    raise exception 'Invite already used';
+  end if;
+  update public.invites set status = 'accepted', accepted_by = auth.uid() where id = inv.id;
+  update public.students set parent_id = auth.uid() where id = inv.student_id;
+  return query select s.id, s.name from public.students s where s.id = inv.student_id;
+end;
+$$;
+
+grant execute on function public.accept_invite(text) to authenticated;
