@@ -230,13 +230,13 @@ end $$;
 -- ─────────────────────────────────────────────────────────────────────────
 create table if not exists public.ride_status (
   id         uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.students (id) on delete cascade,
-  driver_id  uuid not null references public.drivers (id) on delete cascade,
-  window     text not null,
-  ride_date  date not null default current_date,
-  status     text not null default 'waiting',
-  updated_at timestamptz not null default now(),
-  unique (student_id, window, ride_date)
+  student_id  uuid not null references public.students (id) on delete cascade,
+  driver_id   uuid not null references public.drivers (id) on delete cascade,
+  ride_window text not null,
+  ride_date   date not null default current_date,
+  status      text not null default 'waiting',
+  updated_at  timestamptz not null default now(),
+  unique (student_id, ride_window, ride_date)
 );
 
 alter table public.ride_status enable row level security;

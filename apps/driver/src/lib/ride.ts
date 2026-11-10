@@ -15,7 +15,7 @@ export async function getRideStatuses(
     .from('ride_status')
     .select('student_id, status')
     .eq('driver_id', driverId)
-    .eq('window', window)
+    .eq('ride_window', window)
     .eq('ride_date', today());
   if (error) throw error;
   const map: Record<string, RideStatus> = {};
@@ -45,12 +45,12 @@ export async function setRideStatus(
     {
       student_id: student.id,
       driver_id: driverId,
-      window,
+      ride_window: window,
       ride_date: today(),
       status,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'student_id,window,ride_date' },
+    { onConflict: 'student_id,ride_window,ride_date' },
   );
   if (error) throw error;
 
