@@ -1,30 +1,19 @@
-import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  Brand,
-  api,
-  parents,
-  studentById,
-  subscribe,
-  type Alert,
-  type AlertKind,
-} from '@schoolvan/shared';
+import { Brand } from '@schoolvan/shared';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
+import { markAlertRead, useAlerts } from '@/lib/alerts';
 
-// Demo: the signed-in parent. Replace with the authenticated user.
-const CURRENT_PARENT = parents[0];
-
-const ALERT_ICON: Record<AlertKind, string> = {
-  trip_started: '🚐',
-  approaching_stop: '📍',
+const ICON: Record<string, string> = {
   picked_up: '✅',
   dropped_off: '🏫',
+  trip_started: '🚐',
   trip_completed: '🏁',
+  approaching_stop: '📍',
   delay: '⏰',
 };
 
@@ -32,18 +21,12 @@ function timeAgo(iso: string) {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
-  return `${Math.round(mins / 60)}h ago`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+  return `${Math.round(mins / 1440)}d ago`;
 }
 
 export default function AlertsScreen() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-
-  useEffect(() => {
-    const load = () =>
-      api.getAlertsForStudents(CURRENT_PARENT.childIds).then((a) => setAlerts([...a]));
-    load();
-    return subscribe(load);
-  }, []);
+  const { alerts, loading } = useAlerts();
 
   return (
     <ThemedView style={styles.container}>
@@ -53,20 +36,26 @@ export default function AlertsScreen() {
             Alerts
           </ThemedText>
 
-          {alerts.length === 0 && (
+          {loading ? (
             <ThemedText type="small" themeColor="textSecondary">
-              No notifications yet.
+              Loading…
             </ThemedText>
-          )}
-
-          {alerts.map((alert) => {
-            const child = studentById(alert.studentId);
-            return (
-              <Pressable key={alert.id} onPress={() => api.markAlertRead(alert.id)}>
+          ) : alerts.length === 0 ? (
+            <ThemedView type="backgroundElement" style={styles.empty}>
+              <ThemedText type="default" style={styles.semibold}>
+                No alerts yet
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                You&apos;ll get a notification here each time your child is picked up or dropped off.
+              </ThemedText>
+            </ThemedView>
+          ) : (
+            alerts.map((alert) => (
+              <Pressable key={alert.id} onPress={() => markAlertRead(alert.id)}>
                 <ThemedView type="backgroundElement" style={styles.card}>
                   {!alert.read && <View style={styles.unreadDot} />}
                   <ThemedText type="title" style={styles.icon}>
-                    {ALERT_ICON[alert.kind]}
+                    {ICON[alert.kind] ?? '🔔'}
                   </ThemedText>
                   <View style={{ flex: 1 }}>
                     <ThemedText type="default" style={styles.semibold}>
@@ -76,14 +65,13 @@ export default function AlertsScreen() {
                       {alert.body}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
-                      {child ? child.name + ' · ' : ''}
                       {timeAgo(alert.createdAt)}
                     </ThemedText>
                   </View>
                 </ThemedView>
               </Pressable>
-            );
-          })}
+            ))
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -93,12 +81,10 @@ export default function AlertsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.five,
-  },
+  content: { padding: Spacing.three, gap: Spacing.three, paddingBottom: BottomTabInset + Spacing.five },
   title: { marginBottom: Spacing.one },
+  semibold: { fontWeight: '600' },
+  empty: { padding: Spacing.four, borderRadius: Spacing.three, gap: Spacing.one },
   card: {
     flexDirection: 'row',
     gap: Spacing.three,
@@ -107,7 +93,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   icon: { fontSize: 28, lineHeight: 34 },
-  semibold: { fontWeight: '600' },
   meta: { marginTop: Spacing.one },
   unreadDot: {
     position: 'absolute',

@@ -223,3 +223,71 @@ do $$ begin
     alter publication supabase_realtime add table public.van_locations;
   end if;
 end $$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Ride status: per student, per window (morning/afternoon), per day. The
+-- driver writes it; the linked parent may read it.
+-- ─────────────────────────────────────────────────────────────────────────
+create table if not exists public.ride_status (
+  id         uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students (id) on delete cascade,
+  driver_id  uuid not null references public.drivers (id) on delete cascade,
+  window     text not null,
+  ride_date  date not null default current_date,
+  status     text not null default 'waiting',
+  updated_at timestamptz not null default now(),
+  unique (student_id, window, ride_date)
+);
+
+alter table public.ride_status enable row level security;
+
+drop policy if exists "ride_status_driver" on public.ride_status;
+create policy "ride_status_driver" on public.ride_status for all
+  using (auth.uid() = driver_id) with check (auth.uid() = driver_id);
+
+drop policy if exists "ride_status_parent_read" on public.ride_status;
+create policy "ride_status_parent_read" on public.ride_status for select
+  using (exists (
+    select 1 from public.students s
+    where s.id = ride_status.student_id and s.parent_id = auth.uid()
+  ));
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Alerts: a notification about a student (pickup / drop-off / trip events).
+-- The driver inserts them; the linked parent reads and marks them read.
+-- ─────────────────────────────────────────────────────────────────────────
+create table if not exists public.alerts (
+  id         uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students (id) on delete cascade,
+  kind       text not null,
+  title      text not null,
+  body       text not null,
+  read       boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.alerts enable row level security;
+
+drop policy if exists "alerts_driver_insert" on public.alerts;
+create policy "alerts_driver_insert" on public.alerts for insert
+  with check (exists (
+    select 1 from public.students s where s.id = alerts.student_id and s.driver_id = auth.uid()
+  ));
+
+drop policy if exists "alerts_driver_read" on public.alerts;
+create policy "alerts_driver_read" on public.alerts for select
+  using (exists (
+    select 1 from public.students s where s.id = alerts.student_id and s.driver_id = auth.uid()
+  ));
+
+drop policy if exists "alerts_parent_read" on public.alerts;
+create policy "alerts_parent_read" on public.alerts for select
+  using (exists (
+    select 1 from public.students s where s.id = alerts.student_id and s.parent_id = auth.uid()
+  ));
+
+drop policy if exists "alerts_parent_update" on public.alerts;
+create policy "alerts_parent_update" on public.alerts for update
+  using (exists (
+    select 1 from public.students s where s.id = alerts.student_id and s.parent_id = auth.uid()
+  ));
