@@ -137,6 +137,15 @@ create policy "students_parent_read"
   on public.students for select
   using (auth.uid() = parent_id);
 
+-- A parent may read the driver profile of their linked child's driver.
+drop policy if exists "drivers_parent_read" on public.drivers;
+create policy "drivers_parent_read"
+  on public.drivers for select
+  using (exists (
+    select 1 from public.students s
+    where s.driver_id = drivers.id and s.parent_id = auth.uid()
+  ));
+
 create table if not exists public.parents (
   id         uuid primary key references auth.users (id) on delete cascade,
   name       text not null,

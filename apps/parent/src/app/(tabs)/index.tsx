@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -10,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { listMyChildren, type Child } from '@/lib/children';
+import { useDriver } from '@/lib/driver';
 import { useVanLocation } from '@/lib/van-location';
 
 function updatedAgo(iso: string): string {
@@ -25,6 +27,7 @@ export default function TrackScreen() {
   const [loading, setLoading] = useState(true);
   const van = useVanLocation(children[0]?.driverId);
   const online = van?.online && van.lat != null && van.lng != null;
+  const driver = useDriver(children[0]?.driverId);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,6 +96,34 @@ export default function TrackScreen() {
             )}
           </ThemedView>
 
+          {driver && (
+            <>
+              <ThemedText type="smallBold" style={styles.sectionTitle}>
+                Your driver
+              </ThemedText>
+              <ThemedView type="backgroundElement" style={styles.driverCard}>
+                {driver.photoUrl ? (
+                  <Image source={{ uri: driver.photoUrl }} style={styles.driverPhoto} />
+                ) : (
+                  <View style={[styles.driverPhoto, styles.driverPhotoPlaceholder]}>
+                    <ThemedText type="smallBold" style={{ color: '#000' }}>
+                      {driver.name.charAt(0)}
+                    </ThemedText>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="default" style={styles.semibold}>
+                    {driver.name}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Van {driver.vehicleNumber}
+                    {driver.assistantName ? ` · Assistant: ${driver.assistantName}` : ''}
+                  </ThemedText>
+                </View>
+              </ThemedView>
+            </>
+          )}
+
           <ThemedText type="smallBold" style={styles.sectionTitle}>
             My children
           </ThemedText>
@@ -155,6 +186,15 @@ const styles = StyleSheet.create({
   mapOnline: { backgroundColor: Brand.primary },
   mapHint: { color: '#00000099', textAlign: 'center' },
   sectionTitle: { marginTop: Spacing.one },
+  driverCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  driverPhoto: { width: 48, height: 48, borderRadius: 24, backgroundColor: Brand.primary },
+  driverPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   empty: { padding: Spacing.four, borderRadius: Spacing.three, gap: Spacing.one },
   childCard: {
     flexDirection: 'row',
