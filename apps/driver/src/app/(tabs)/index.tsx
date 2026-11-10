@@ -12,7 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useLocationSharing } from '@/location/use-location-sharing';
 import { getRideStatuses, setRideStatus, type RideWindow } from '@/lib/ride';
-import { listStudents, type Student } from '@/lib/students';
+import { listStudents, weekdayCode, type Student } from '@/lib/students';
 
 const WINDOWS: RideWindow[] = ['morning', 'afternoon'];
 const WINDOW_LABEL: Record<RideWindow, string> = { morning: 'Morning', afternoon: 'Afternoon' };
@@ -40,6 +40,12 @@ export default function RouteScreen() {
   const [startedAt, setStartedAt] = useState<string>();
 
   const share = useLocationSharing(online, driverId);
+
+  // Only the students scheduled for this window today.
+  const today = weekdayCode();
+  const roster = students.filter((s) =>
+    (window === 'morning' ? s.pickupDays : s.dropoffDays).includes(today),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -166,9 +172,18 @@ export default function RouteScreen() {
                 </ThemedText>
               </Pressable>
             </ThemedView>
+          ) : roster.length === 0 ? (
+            <ThemedView type="backgroundElement" style={styles.empty}>
+              <ThemedText type="default" style={styles.semibold}>
+                No one scheduled
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                No {WINDOW_LABEL[window].toLowerCase()} pickups are scheduled for today.
+              </ThemedText>
+            </ThemedView>
           ) : (
             <>
-              {students.map((student) => (
+              {roster.map((student) => (
                 <Pressable key={student.id} onPress={() => cycle(student)}>
                   <ThemedView type="backgroundElement" style={styles.studentRow}>
                     <View style={styles.avatar}>

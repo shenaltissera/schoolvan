@@ -22,6 +22,7 @@ export default function JoinScreen() {
   const [resolved, setResolved] = useState(false);
   const [status, setStatus] = useState<Status>('resolving');
   const [studentName, setStudentName] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [error, setError] = useState('');
   const acceptedRef = useRef(false);
 
@@ -57,8 +58,9 @@ export default function JoinScreen() {
     acceptedRef.current = true;
     setStatus('accepting');
     acceptInvite(token)
-      .then(async (name) => {
-        setStudentName(name);
+      .then(async (student) => {
+        setStudentName(student.name);
+        setStudentId(student.id);
         await clearPendingInvite();
         setStatus('done');
       })
@@ -114,11 +116,19 @@ export default function JoinScreen() {
                 You&apos;re all set
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.sub}>
-                You&apos;re now tracking {studentName}&apos;s school van.
+                You&apos;re now tracking {studentName}&apos;s school van. Next, pick which days
+                they need the van.
               </ThemedText>
-              <Pressable style={styles.primary} onPress={() => router.replace('/')}>
+              <Pressable
+                style={styles.primary}
+                onPress={() => router.replace(`/schedule/${studentId}`)}>
                 <ThemedText type="smallBold" style={styles.primaryText}>
-                  View my children
+                  Set pickup days
+                </ThemedText>
+              </Pressable>
+              <Pressable style={styles.secondary} onPress={() => router.replace('/')}>
+                <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+                  Skip for now
                 </ThemedText>
               </Pressable>
             </View>

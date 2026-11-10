@@ -6,6 +6,8 @@ export interface Student {
   name: string;
   grade: string | null;
   homeAddress: string | null;
+  pickupDays: string[];
+  dropoffDays: string[];
   createdAt: string;
 }
 
@@ -30,8 +32,15 @@ function toStudent(row: Record<string, any>): Student {
     name: row.name,
     grade: row.grade ?? null,
     homeAddress: row.home_address ?? null,
+    pickupDays: row.pickup_days ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
+    dropoffDays: row.dropoff_days ?? ['mon', 'tue', 'wed', 'thu', 'fri'],
     createdAt: row.created_at,
   };
+}
+
+/** Weekday code for a date (mon..sun). */
+export function weekdayCode(d = new Date()): string {
+  return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()];
 }
 
 function toInvite(row: Record<string, any>): Invite {

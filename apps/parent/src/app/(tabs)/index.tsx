@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { useAccount } from '@/auth/account';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { listMyChildren, type Child } from '@/lib/children';
+import { listMyChildren, summarizeDays, type Child } from '@/lib/children';
 import { useDriver } from '@/lib/driver';
 import { useVanLocation } from '@/lib/van-location';
 
@@ -143,21 +143,30 @@ export default function TrackScreen() {
             </ThemedView>
           ) : (
             children.map((child) => (
-              <ThemedView key={child.id} type="backgroundElement" style={styles.childCard}>
-                <View style={styles.avatar}>
-                  <ThemedText type="smallBold" style={{ color: '#000' }}>
-                    {child.name.charAt(0)}
+              <Pressable key={child.id} onPress={() => router.push(`/schedule/${child.id}`)}>
+                <ThemedView type="backgroundElement" style={styles.childCard}>
+                  <View style={styles.avatar}>
+                    <ThemedText type="smallBold" style={{ color: '#000' }}>
+                      {child.name.charAt(0)}
+                    </ThemedText>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText type="default" style={styles.semibold}>
+                      {child.name}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {child.grade ?? 'Linked to your van'}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.sched}>
+                      Pickup {summarizeDays(child.pickupDays)} · Drop-off{' '}
+                      {summarizeDays(child.dropoffDays)}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+                    ›
                   </ThemedText>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <ThemedText type="default" style={styles.semibold}>
-                    {child.name}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {[child.grade, child.homeAddress].filter(Boolean).join(' · ') || 'Linked to your van'}
-                  </ThemedText>
-                </View>
-              </ThemedView>
+                </ThemedView>
+              </Pressable>
             ))
           )}
         </ScrollView>
@@ -212,4 +221,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   semibold: { fontWeight: '600' },
+  sched: { marginTop: 2 },
 });

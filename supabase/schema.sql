@@ -137,6 +137,25 @@ create policy "students_parent_read"
   on public.students for select
   using (auth.uid() = parent_id);
 
+-- Weekly ride schedule: which weekdays the child needs pickup (morning) and
+-- drop-off (afternoon). Set by the parent; defaults to the full school week.
+alter table public.students
+  add column if not exists pickup_days text[] not null default array['mon','tue','wed','thu','fri'];
+alter table public.students
+  add column if not exists dropoff_days text[] not null default array['mon','tue','wed','thu','fri'];
+
+-- A parent sets the schedule of their own child (security definer, parent-checked).
+create or replace function public.set_ride_schedule(p_student uuid, p_pickup text[], p_dropoff text[])
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update public.students
+    set pickup_days = p_pickup, dropoff_days = p_dropoff
+    where id = p_student and parent_id = auth.uid();
+end;
+$$;
+
+grant execute on function public.set_ride_schedule(uuid, text[], text[]) to authenticated;
+
 -- A parent may read the driver profile of their linked child's driver.
 drop policy if exists "drivers_parent_read" on public.drivers;
 create policy "drivers_parent_read"
