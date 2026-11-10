@@ -45,26 +45,35 @@ export function useVanLocation(driverId?: string): VanLocation | null {
       return;
     }
     let active = true;
-    getVanLocation(driverId).then((loc) => {
-      if (active) setLocation(loc);
-    });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const channel = supabase
-      .channel(`van:${driverId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'van_locations', filter: `driver_id=eq.${driverId}` },
-        (payload) => {
-          if (payload.new && Object.keys(payload.new).length) {
-            setLocation(toVanLocation(payload.new as Record<string, any>));
-          }
-        },
-      )
-      .subscribe();
+    (async () => {
+      // Authenticate the realtime socket so RLS lets this parent receive the
+      // row, then load the current location and subscribe to live updates.
+      const { data } = await supabase.auth.getSession();
+      supabase.realtime.setAuth(data.session?.access_token ?? null);
+
+      const loc = await getVanLocation(driverId);
+      if (!active) return;
+      setLocation(loc);
+
+      channel = supabase
+        .channel(`van:${driverId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'van_locations', filter: `driver_id=eq.${driverId}` },
+          (payload) => {
+            if (payload.new && Object.keys(payload.new).length) {
+              setLocation(toVanLocation(payload.new as Record<string, any>));
+            }
+          },
+        )
+        .subscribe();
+    })();
 
     return () => {
       active = false;
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [driverId]);
 
