@@ -291,3 +291,54 @@ create policy "alerts_parent_update" on public.alerts for update
   using (exists (
     select 1 from public.students s where s.id = alerts.student_id and s.parent_id = auth.uid()
   ));
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Push notifications: store each user's Expo push token, and send a push to
+-- the parent's device whenever an alert is inserted (via pg_net, no server).
+-- ─────────────────────────────────────────────────────────────────────────
+create extension if not exists pg_net;
+
+create table if not exists public.push_tokens (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  token      text not null,
+  updated_at timestamptz not null default now(),
+  unique (user_id, token)
+);
+
+alter table public.push_tokens enable row level security;
+
+drop policy if exists "push_tokens_own" on public.push_tokens;
+create policy "push_tokens_own" on public.push_tokens for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create or replace function public.notify_parent_push()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  parent uuid;
+  tok    record;
+begin
+  select s.parent_id into parent from public.students s where s.id = new.student_id;
+  if parent is null then
+    return new;
+  end if;
+  for tok in select token from public.push_tokens where user_id = parent loop
+    perform net.http_post(
+      url := 'https://exp.host/--/api/v2/push/send',
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'to', tok.token,
+        'title', new.title,
+        'body', new.body,
+        'sound', 'default'
+      )
+    );
+  end loop;
+  return new;
+end;
+$$;
+
+drop trigger if exists alerts_push on public.alerts;
+create trigger alerts_push after insert on public.alerts
+  for each row execute function public.notify_parent_push();
