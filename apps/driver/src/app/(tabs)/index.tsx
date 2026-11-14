@@ -72,9 +72,10 @@ export default function RouteScreen() {
       const current = statuses[student.id] ?? 'waiting';
       const next = nextStatus(current);
       setStatuses((prev) => ({ ...prev, [student.id]: next }));
-      setRideStatus(driverId, { id: student.id, name: student.name }, window, next).catch((e) =>
-        Alert.alert('Could not update', e.message),
-      );
+      setRideStatus(driverId, { id: student.id, name: student.name }, window, next).catch((e) => {
+        setStatuses((prev) => ({ ...prev, [student.id]: current })); // undo on failure
+        Alert.alert('Could not update', e.message);
+      });
     },
     [driverId, statuses, window],
   );

@@ -56,11 +56,23 @@ export async function setRideStatus(
 
   if (status === 'onboard' || status === 'dropped') {
     const a = buildAlert(student.name, window, status);
-    await supabase.from('alerts').insert({
-      student_id: student.id,
-      kind: a.kind,
-      title: a.title,
-      body: a.body,
-    });
+    // Don't re-notify the same event (re-tapping): titles are unique per window+action.
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { data: existing } = await supabase
+      .from('alerts')
+      .select('id')
+      .eq('student_id', student.id)
+      .eq('title', a.title)
+      .gte('created_at', startOfDay.toISOString())
+      .limit(1);
+    if (!existing?.length) {
+      await supabase.from('alerts').insert({
+        student_id: student.id,
+        kind: a.kind,
+        title: a.title,
+        body: a.body,
+      });
+    }
   }
 }

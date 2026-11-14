@@ -130,6 +130,8 @@ create policy "invites_own"
 -- accept an invite. Parents get their own profile row + read access to
 -- their linked children.
 -- ─────────────────────────────────────────────────────────────────────────
+-- shortcut: one parent per child (accept_invite overwrites parent_id). Move to
+-- a student_parents link table when two guardians must track the same child.
 alter table public.students add column if not exists parent_id uuid references auth.users (id);
 
 drop policy if exists "students_parent_read" on public.students;
@@ -148,8 +150,10 @@ alter table public.students
 create or replace function public.set_ride_schedule(p_student uuid, p_pickup text[], p_dropoff text[])
 returns void language plpgsql security definer set search_path = public as $$
 begin
+  -- Keep only valid weekday codes, so a bad client can't make a child invisible to the driver.
   update public.students
-    set pickup_days = p_pickup, dropoff_days = p_dropoff
+    set pickup_days  = array(select unnest(p_pickup)  intersect select unnest(array['mon','tue','wed','thu','fri'])),
+        dropoff_days = array(select unnest(p_dropoff) intersect select unnest(array['mon','tue','wed','thu','fri']))
     where id = p_student and parent_id = auth.uid();
 end;
 $$;
@@ -191,6 +195,9 @@ begin
   select * into inv from public.invites where token = invite_token;
   if inv.id is null then
     raise exception 'Invite not found';
+  end if;
+  if inv.created_at < now() - interval '48 hours' then
+    raise exception 'This invite has expired';
   end if;
   if inv.status = 'accepted' and inv.accepted_by is distinct from auth.uid() then
     raise exception 'Invite already used';

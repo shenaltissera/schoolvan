@@ -29,3 +29,5 @@ export const RideStatusLabel = {
   dropped: 'Dropped off',
   absent: 'Absent',
 } as const;
+
+export type RideStatus = keyof typeof RideStatusColor;
