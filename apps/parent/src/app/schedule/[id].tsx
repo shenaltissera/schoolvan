@@ -52,6 +52,7 @@ export default function ScheduleScreen() {
   const [pickup, setPickup] = useState<string[]>([]);
   const [dropoff, setDropoff] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -62,7 +63,9 @@ export default function ScheduleScreen() {
         setName(c.name);
         setPickup(c.pickupDays);
         setDropoff(c.dropoffDays);
+        setReady(true); // only then is it safe to Save — otherwise we'd write empty days
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -105,6 +108,10 @@ export default function ScheduleScreen() {
           {loading ? (
             <ThemedText type="small" themeColor="textSecondary">
               Loading…
+            </ThemedText>
+          ) : !ready ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Couldn&apos;t load this child. Go back and try again.
             </ThemedText>
           ) : (
             <>
